@@ -6,16 +6,16 @@ def plot_fit(result, title=""):
 
     xr = result["xr"]
     yr = result["yr"]
-
     total_fit = result["total_fit"]
-    peak1 = result["peak1"]
-    peak2 = result["peak2"]
+    peaks = result["peaks"]
 
     plt.figure()
     plt.plot(xr, yr, 'k', label="Data")
     plt.plot(xr, total_fit, 'r', linewidth=2, label="Total Fit")
-    plt.plot(xr, peak1, '--b', label="Peak 1")
-    plt.plot(xr, peak2, '--g', label="Peak 2")
+
+    # Plot each peak
+    for i, peak in enumerate(peaks):
+        plt.plot(xr, peak, '--', label=f"Peak {i+1}")
 
     plt.xlabel("Raman shift (cm$^{-1}$)")
     plt.ylabel("Intensity")

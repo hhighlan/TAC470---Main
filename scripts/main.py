@@ -1,5 +1,5 @@
 from file_read import get_file_list
-from fit_lorentzian import fit_two_lorentzian
+from fit_lorentzian import fit_n_lorentzian
 from plot import plot_fit, plot_percentages
 import matplotlib.pyplot as plt
 
@@ -15,7 +15,11 @@ def main():
 
     # 2. Fit each file
     for i, filepath in enumerate(files):
-        result = fit_two_lorentzian(filepath)
+        n_peaks = 2 
+        rangelb = 1200
+        rangehb = 1700
+
+        result = fit_n_lorentzian(filepath, n_peaks, rangelb, rangehb)
 
         results.append(result)
         percentages.append(result["percentages"])
