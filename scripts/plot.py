@@ -1,23 +1,21 @@
 import matplotlib.pyplot as plt
-import numpy as np
-from model_func import lorentz  
+import numpy as np 
 
 #input all the key values from model fit and a name for the title
 def plot_fit(result, title=""):
+
     xr = result["xr"]
     yr = result["yr"]
-    A1, g1, A2, g2 = result["params"]
-    x0_1 = result["x0_1"]
-    x0_2 = result["x0_2"]
 
-    total_fit = (lorentz(A1, x0_1, g1, xr) +
-                 lorentz(A2, x0_2, g2, xr))
+    total_fit = result["total_fit"]
+    peak1 = result["peak1"]
+    peak2 = result["peak2"]
 
     plt.figure()
     plt.plot(xr, yr, 'k', label="Data")
     plt.plot(xr, total_fit, 'r', linewidth=2, label="Total Fit")
-    plt.plot(xr, lorentz(A1, x0_1, g1, xr), '--b', label="Peak 1")
-    plt.plot(xr, lorentz(A2, x0_2, g2, xr), '--g', label="Peak 2")
+    plt.plot(xr, peak1, '--b', label="Peak 1")
+    plt.plot(xr, peak2, '--g', label="Peak 2")
 
     plt.xlabel("Raman shift (cm$^{-1}$)")
     plt.ylabel("Intensity")

@@ -1,8 +1,6 @@
 import os
 import numpy as np
 
-import os
-
 #HARD CODE METHOD FOR NOW
 # start with function handle that takes in a string that is the directory of the data
 def get_file_list(data_dir):

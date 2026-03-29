@@ -57,12 +57,16 @@ def fit_two_lorentzian(filepath, rangelb=1200, rangehb=1700):
     #calc fit
     p_fit, _ = curve_fit(model, xr, yr, p0=p0, bounds=bounds)
 
+    # extract curve fit values
     A1_fit, g1_fit, A2_fit, g2_fit = p_fit
 
-    # Calculate percentages using area
+    peak1_curve = lorentz(A1_fit, x0_1, g1_fit, xr)
+    peak2_curve = lorentz(A2_fit, x0_2, g2_fit, xr)
+    total_fit = peak1_curve + peak2_curve
+
+    # calculate percentages using area
     area1 = (np.pi / 2) * A1_fit * g1_fit
     area2 = (np.pi / 2) * A2_fit * g2_fit
-
     total = area1 + area2
 
     percent1 = 100 * area1 / total
@@ -72,8 +76,8 @@ def fit_two_lorentzian(filepath, rangelb=1200, rangehb=1700):
     return {
         "xr": xr,
         "yr": yr,
-        "x0_1": x0_1,
-        "x0_2": x0_2,
-        "params": p_fit,
+        "total_fit": total_fit,       
+        "peak1": peak1_curve,         
+        "peak2": peak2_curve,         
         "percentages": (percent1, percent2)
     }
