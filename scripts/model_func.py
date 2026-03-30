@@ -14,3 +14,4 @@ def lorentz(A, x0, g, x):
         Lorentzian evaluated at x
     """
     return A * ((g / 2)**2 / ((x - x0)**2 + (g / 2)**2))
+

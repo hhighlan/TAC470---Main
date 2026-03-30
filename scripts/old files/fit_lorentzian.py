@@ -66,21 +66,41 @@ def fit_n_lorentzian(filepath, n_peaks, rangelb, rangehb):
     # of fit functions
     p_fit, _ = curve_fit(model, xr, yr, p0=p0,
                          bounds=(bounds_lower, bounds_upper))
-
-    # --- Build curves ---
+    
+    # Result variables
+    I_diam = None
+    I_G = None
     peak_curves = []
     areas = []
 
+    # Extract amplitudes and centers
+    A_list = []
     for i in range(n_peaks):
         A = p_fit[2*i]
+        A_list.append(A)
         g = p_fit[2*i + 1]
         x0 = x0_list[i]
+        x0 = x0_list[i]
+        A = A_list[i]
 
+        #Build the curves
         curve = lorentz(A, x0, g, xr)
         peak_curves.append(curve)
 
         area = (np.pi / 2) * A * g
         areas.append(area)
+        
+        #find grain size
+
+        if abs(x0 - 1332.5) < 20:   # tolerance window
+            I_diam = A
+        elif abs(x0 - 1550) < 50:
+            I_G = A
+
+    # Compute f if both peaks found
+    grain_factor = None
+    if I_diam is not None and I_G is not None:
+        grain_factor = 100 * I_G / (75 * I_diam + I_G)
 
     total_fit = np.sum(peak_curves, axis=0)
     total_area = sum(areas)
@@ -92,5 +112,6 @@ def fit_n_lorentzian(filepath, n_peaks, rangelb, rangehb):
         "yr": yr,
         "total_fit": total_fit,
         "peaks": peak_curves,        # list of arrays
-        "percentages": percentages   # list
+        "percentages": percentages,   # list
+        "grain_factor": grain_factor
     }
