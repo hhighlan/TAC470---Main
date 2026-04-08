@@ -1,23 +1,19 @@
-
+from abc import ABC, abstractmethod # handle name for abstract classes
 from file_util import load_two_column_file
-from plot import plot_standard_fit, plot_lorentz_fit, plot_percentages
 
-class DataSet:
+# Now this class is abstract, parent class
+# Private variables: 
+    # file path(HARD CODE)
+    # data: raw data
+    # results: calculated data
+class DataSet(ABC):
+    #Contructor
     def __init__(self, filepaths):
-        """
-        Generic container for any dataset
-        """
         self.filepaths = filepaths
-        self.data = []          # raw (x, y)
-        self.processed = []     # cleaned / corrected data
-        self.results = []       # analysis outputs
+        self.data = []
+        self.results = []
 
-    def add_data(self, x, y):
-        self.data.append({"x": x, "y": y})
-
-    def add_result(self, result):
-        self.results.append(result)
-
+    #load all the data by calling file_util
     def load_all(self):
         self.data = []
 
@@ -28,29 +24,26 @@ class DataSet:
                 "x": x,
                 "y": y
             })
-    
-    def apply_standard_fit(self, fitter):
-        self.results = fitter.fit_n_standards(self.filepaths)
 
-    def apply_lorentz_fit(self, fitter, n_peaks=2):
-        self.results = [
-            fitter.fit_n_lorentzians(fp, n_peaks=n_peaks)
-            for fp in self.filepaths
-        ]
-    
-    def plot_standard_fits(self):
-        """
-        Loop through results and plot standard decomposition
-        """
-        for result in self.results:
-            plot_standard_fit(result)
+    # 2 abstract methods
 
-    def plot_lorentz_fits(self):
+    # plot fit
+    @abstractmethod
+    def plot_fits(self):
         """
-        Loop through results and plot Lorentzian fits
+        Each child class must implement its own fit plotting.
         """
-        for result in self.results:
-            plot_lorentz_fit(result)
+        pass
 
+    #plot percentages
+    @abstractmethod
     def plot_percentages(self):
-        plot_percentages([r["percentages"] for r in self.results])
+        """
+        Each child class must implement its own percentage plotting.
+        """
+        pass
+    
+    # child finds its own fit method and does the fit
+    @abstractmethod
+    def fit(self):
+        pass

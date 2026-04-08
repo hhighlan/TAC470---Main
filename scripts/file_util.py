@@ -2,6 +2,9 @@ import os
 import numpy as np
 import pandas as pd
 
+# The util file that will handle the hardcode file names and reading them base on 
+# file types
+
 #HARD CODE METHOD FOR NOW
 # start with function handle that takes in a string that is the directory of the data
 def get_file_list(data_dir):
@@ -23,6 +26,8 @@ def get_file_list(data_dir):
 # return a array of names
 
 
+# HARD CODE FOR NOW
+# the decomp method
 def get_file_list_standard(data_dir):
     measurement_files = [
         "532nm_5s_IT_LP_1%.txt",
