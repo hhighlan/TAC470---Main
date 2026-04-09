@@ -47,7 +47,7 @@ class RamanDataSet(DataSet):
     
     # implement abstract method: fit
     # calls the fit LORENTZIAN
-    def fit(self, fitter, n_peaks=2, rangelb=1200, rangehb=1700):
+    def fit(self, fitter, n_peaks, rangelb, rangehb):
         self.results = []
 
         for filepath in self.filepaths:

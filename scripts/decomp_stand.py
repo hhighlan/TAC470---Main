@@ -29,7 +29,7 @@ class DecompDataSet(DataSet):
     # implement abstract method: fit
     # calls the STANDARD fitter
     # CURRENTLY HARD CODED BOUNDS
-    def fit(self, fitter,rangelb=550, rangehb=800):
+    def fit(self, fitter,rangelb, rangehb):
         self.results = fitter.fit_n_standards(self.filepaths,rangelb, rangehb)
 
     # implement abstract method: plot fit
