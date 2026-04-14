@@ -1,6 +1,7 @@
 from dataset import DataSet
-from plot import plot
+from plot import plot_fit_figure, plot_multiple_series
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Child class 1: Decomposition 
 # For when standards create data, want to decompose standard
@@ -36,25 +37,8 @@ class DecompDataSet(DataSet):
     # calls plot STANDARD fit
     def plot_fits(self):
         for result in self.results:
-            x = result["x"]
-            y = result["y"]
-            total_fit = result["total_fit"]
-            components = result["components"]
-            names = result["standard_names"]
-
-            y_series = [y] + components + [total_fit]
-            labels = ["Measured"] + names + ["Total Fit"]
-            styles = ['r--'] + ['-'] * len(components) + ['k']
-
-            plot(
-                x,
-                y_series,
-                labels=labels,
-                styles=styles,
-                title=result["filepath"],
-                xlabel="Wavelength",
-                ylabel="Intensity"
-            )
+            fig = self.make_fit_figure(result)
+        plt.show()
 
     # implement abstract method: plot percentages
     # sends different values to plot percentages
@@ -68,7 +52,7 @@ class DecompDataSet(DataSet):
             values = [p[i] for p in percentages]
             y_series.append(values)
 
-        plot(
+        plot_multiple_series(
             samples,
             y_series,
             labels=labels,
@@ -78,3 +62,26 @@ class DecompDataSet(DataSet):
             ylabel="Percentage (%)",
             ylim=(0, 100)
         )
+    
+    def make_fit_figure(self, result):
+        x = result["x"]
+        y = result["y"]
+        total_fit = result["total_fit"]
+        components = result["components"]
+        names = result["standard_names"]
+
+        labels = ["Measured"] + names + ["Total Fit"]
+        styles = ['r--'] + ['-'] * len(components) + ['k']
+        y_series = [y] + components + [total_fit]
+
+        fig = plot_fit_figure(
+            x,
+            y_series,
+            labels=labels,
+            styles=styles,
+            title=result["filepath"],
+            xlabel="Wavelength",
+            ylabel="Intensity"
+        )
+
+        return fig

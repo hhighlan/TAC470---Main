@@ -3,6 +3,7 @@ import os
 import matplotlib.pyplot as plt
 
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QPushButton,
@@ -13,10 +14,10 @@ from PyQt5.QtWidgets import (
 )
 
 # File import from my own
-from file_util import get_file_list_standard, get_file_list
 from decomp_stand import DecompDataSet
 from raman import RamanDataSet
 from fitters import SpectralFitter
+from Exporter import ResultExporter
 
 
 # Class 1
@@ -81,6 +82,130 @@ class FileNamingDialog(QDialog):
             })
 
         return named_files
+    
+class AnalysisResultsDialog(QDialog):
+    def __init__(self, mode, results, grain_metrics=None, parent=None):
+        super().__init__(parent)
+
+        self.setWindowTitle(f"{mode} Analysis Results")
+        self.resize(900, 400)
+
+        layout = QVBoxLayout()
+
+        title = QLabel(f"{mode} fitted results")
+        layout.addWidget(title)
+
+        grain_map = {}
+        if grain_metrics:
+            grain_map = {
+                item["filepath"]: item["grain_size_metric"]
+                for item in grain_metrics
+            }
+
+        # Build headers
+        base_headers = ["File"]
+
+        max_peaks = 0
+        for result in results:
+            area_list = result.get("area_list", [])
+            if len(area_list) > max_peaks:
+                max_peaks = len(area_list)
+
+        peak_headers = [f"Peak Area {i+1}" for i in range(max_peaks)]
+
+        if mode == "Raman":
+            headers = base_headers + ["Grain Size Metric"] + peak_headers
+        else:
+            headers = base_headers + peak_headers
+
+        self.table = QTableWidget()
+        self.table.setRowCount(len(results))
+        self.table.setColumnCount(len(headers))
+        self.table.setHorizontalHeaderLabels(headers)
+
+        for row, result in enumerate(results):
+            filepath = result.get("filepath", "")
+            filename = os.path.basename(filepath)
+
+            file_item = QTableWidgetItem(filename)
+            file_item.setFlags(file_item.flags() & ~Qt.ItemIsEditable)
+            self.table.setItem(row, 0, file_item)
+
+            col_offset = 1
+
+            if mode == "Raman":
+                grain_value = grain_map.get(filepath, None)
+                grain_text = "Not found" if grain_value is None else f"{grain_value:.4f}"
+                grain_item = QTableWidgetItem(grain_text)
+                grain_item.setFlags(grain_item.flags() & ~Qt.ItemIsEditable)
+                self.table.setItem(row, 1, grain_item)
+                col_offset = 2
+
+            area_list = result.get("area_list", [])
+
+            for i in range(max_peaks):
+                if i < len(area_list):
+                    value_text = f"{area_list[i]:.4f}"
+                else:
+                    value_text = ""
+
+                area_item = QTableWidgetItem(value_text)
+                area_item.setFlags(area_item.flags() & ~Qt.ItemIsEditable)
+                self.table.setItem(row, col_offset + i, area_item)
+
+        self.table.resizeColumnsToContents()
+        layout.addWidget(self.table)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok)
+        buttons.accepted.connect(self.accept)
+        layout.addWidget(buttons)
+
+        self.setLayout(layout)
+    
+class GrainMetricDialog(QDialog):
+    def __init__(self, grain_metrics, parent=None):
+        super().__init__(parent)
+
+        self.setWindowTitle("Raman Grain Size Metrics")
+        self.resize(500, 300)
+
+        layout = QVBoxLayout()
+
+        title = QLabel("Calculated Raman grain size metric values")
+        layout.addWidget(title)
+
+        self.table = QTableWidget()
+        self.table.setRowCount(len(grain_metrics))
+        self.table.setColumnCount(2)
+        self.table.setHorizontalHeaderLabels(["File", "Grain Size Metric"])
+
+        for row, item in enumerate(grain_metrics):
+            filepath = item["filepath"]
+            value = item["grain_size_metric"]
+
+            file_item = QTableWidgetItem(os.path.basename(filepath))
+
+            if value is None:
+                value_text = "Not found"
+            else:
+                value_text = f"{value:.4f}"
+
+            value_item = QTableWidgetItem(value_text)
+
+            file_item.setFlags(file_item.flags() & ~Qt.ItemIsEditable)
+            value_item.setFlags(value_item.flags() & ~Qt.ItemIsEditable)
+
+            self.table.setItem(row, 0, file_item)
+            self.table.setItem(row, 1, value_item)
+
+        self.table.resizeColumnsToContents()
+        layout.addWidget(self.table)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok)
+        buttons.accepted.connect(self.accept)
+        layout.addWidget(buttons)
+
+        self.setLayout(layout)
 
 class FitParameterDialog(QDialog):
     def __init__(self, mode="Raman", parent=None):
@@ -101,6 +226,7 @@ class FitParameterDialog(QDialog):
         self.upper_spin.setDecimals(2)
         self.upper_spin.setRange(-1e9, 1e9)
 
+        # convinient defualt options from experience
         if mode == "Raman":
             self.lower_spin.setValue(1200)
             self.upper_spin.setValue(1700)
@@ -152,7 +278,6 @@ class FitParameterDialog(QDialog):
         return values
 
 class MainWindow(QMainWindow):
-
     def __init__(self):
         super().__init__()
 
@@ -169,6 +294,7 @@ class MainWindow(QMainWindow):
         self.measurement_files = []
         self.standard_files = []
         self.raman_files = []
+        self.grain_metrics = []
 
         # ---------- central widget ----------
         central = QWidget()
@@ -181,14 +307,16 @@ class MainWindow(QMainWindow):
         self.mode_combo = QComboBox()
         self.mode_combo.addItems(["Raman", "Decomposition"])
 
-        self.load_button = QPushButton("Load Default Files")
-        self.load_folder_button = QPushButton("Choose Data Folder")
+        self.load_button = QPushButton("Load Files")
         self.fit_button = QPushButton("Run Fit")
         self.plot_fits_button = QPushButton("Plot Fits")
         self.plot_percentages_button = QPushButton("Plot Percentages")
         self.raw_button = QPushButton("Plot Raw Data")
+        self.clear_button = QPushButton("Clear")
+        self.save_results_button = QPushButton("Save Results")
 
         self.status_label = QLabel("Status: Ready")
+        self.status_label.setStyleSheet("color: red;")
         self.file_list = QListWidget()
 
         # ---------- layout ----------
@@ -199,10 +327,15 @@ class MainWindow(QMainWindow):
 
         controls_row.addWidget(self.mode_label)
         controls_row.addWidget(self.mode_combo)
+        controls_row.addWidget(self.mode_label)
+        controls_row.addWidget(self.mode_combo)
+        controls_row.addWidget(self.clear_button)
 
         fit_row.addWidget(self.load_button)
-        fit_row.addWidget(self.load_folder_button)
         fit_row.addWidget(self.fit_button)
+        fit_row.addWidget(self.load_button)
+        fit_row.addWidget(self.fit_button)
+        fit_row.addWidget(self.save_results_button)
 
         plot_row.addWidget(self.raw_button)
         plot_row.addWidget(self.plot_fits_button)
@@ -211,24 +344,86 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.title_label)
         main_layout.addLayout(controls_row)
         main_layout.addLayout(fit_row)
+        main_layout.addWidget(self.status_label)
         main_layout.addWidget(QLabel("Loaded files:"))
         main_layout.addWidget(self.file_list)
         main_layout.addLayout(plot_row)
-        main_layout.addWidget(self.status_label)
-
+        
         central.setLayout(main_layout)
 
         # ---------- signals / slots ----------
         self.mode_combo.currentTextChanged.connect(self.on_mode_changed)
         self.load_button.clicked.connect(self.select_files)
-        self.load_folder_button.clicked.connect(self.choose_data_folder)
         self.fit_button.clicked.connect(self.run_fit)
         self.plot_fits_button.clicked.connect(self.plot_fits)
         self.plot_percentages_button.clicked.connect(self.plot_percentages)
         self.raw_button.clicked.connect(self.plot_raw_data)
+        self.clear_button.clicked.connect(self.clear_all)
+        self.save_results_button.clicked.connect(self.save_results)
+
+        # At the start, these buttons are disabled
+        self.raw_button.setEnabled(False)
+        self.plot_fits_button.setEnabled(False)
+        self.plot_percentages_button.setEnabled(False)
+        self.save_results_button.setEnabled(False)
 
         # initialize UI state
         self.on_mode_changed(self.mode_combo.currentText())
+
+    def clear_all(self):
+        reply = QMessageBox.question(
+            self,
+            "Confirm Clear",
+            "Are you sure you want to clear all data?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            self.reset_state_for_new_selection()
+            self.status_label.setText("Status: Cleared all data")
+        
+        self.raw_button.setEnabled(False)
+        self.plot_fits_button.setEnabled(False)
+        self.plot_percentages_button.setEnabled(False)
+        self.save_results_button.setEnabled(False)
+
+    def save_results(self):
+        if self.dataset is None or not getattr(self.dataset, "results", None):
+            QMessageBox.warning(self, "No Results", "Run a fit before saving results.")
+            return
+
+        folder = QFileDialog.getExistingDirectory(
+            self,
+            "Choose Folder to Save Results"
+        )
+
+        if not folder:
+            self.status_label.setText("Status: Save cancelled")
+            return
+
+        try:
+            exporter = ResultExporter(
+                dataset=self.dataset,
+                mode=self.mode,
+                grain_metrics=self.grain_metrics if self.mode == "Raman" else None
+            )
+
+            output = exporter.export_all(folder)
+
+            self.status_label.setText("Status: Results saved successfully")
+
+            QMessageBox.information(
+                self,
+                "Save Complete",
+                "Results were saved successfully.\n\n"
+                f"Summary Excel:\n{output['summary_excel']}\n\n"
+                f"Raw Data Excel:\n{output['raw_excel']}\n\n"
+                f"Figures saved: {len(output['figures'])}"
+            )
+
+        except Exception as e:
+            QMessageBox.critical(self, "Save Error", str(e))
+            self.status_label.setText("Status: Save failed")
 
     def get_named_file_selection(self, title):
         filepaths, _ = QFileDialog.getOpenFileNames(
@@ -254,8 +449,13 @@ class MainWindow(QMainWindow):
         self.measurement_files = []
         self.standard_files = []
         self.raman_files = []
+        self.grain_metrics = []
         self.file_list.clear()
         self.fit_button.setEnabled(True)
+        self.raw_button.setEnabled(False)
+        self.plot_fits_button.setEnabled(False)
+        self.plot_percentages_button.setEnabled(False)
+        self.save_results_button.setEnabled(False)
 
     # Switch analysis modes
     # connected to self.mode_combo.currentTextChanged.connect(self.on_mode_changed)
@@ -271,14 +471,13 @@ class MainWindow(QMainWindow):
         self.file_list.clear()
         self.dataset = None
         self.fitter = None
+        self.grain_metrics = []
+        self.raw_button.setEnabled(False)
+        self.plot_fits_button.setEnabled(False)
+        self.plot_percentages_button.setEnabled(False)
+        self.save_results_button.setEnabled(False)
         # Give feedback to the user
         self._update_status(f"Status: Mode set to {self.mode}")
-
-    def choose_data_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Choose Data Folder", self.data_dir)
-        if folder:
-            self.data_dir = folder
-            self._update_status(f"Status: Data folder set to {self.data_dir}")
 
     def run_fit(self):
         if self.dataset is None or self.fitter is None:
@@ -307,11 +506,16 @@ class MainWindow(QMainWindow):
                     rangehb=rangehb
                 )
 
+                # Attach peak areas if not already present
+                if hasattr(self.dataset, "attach_peak_areas_to_results"):
+                    self.dataset.attach_peak_areas_to_results()
+
+                self.grain_metrics = self.dataset.calculate_grain_size_metric()
+
                 self.status_label.setText(
                     f"Status: Raman fit complete | peaks={n_peaks}, "
                     f"range=({rangelb}, {rangehb})"
                 )
-
             else:
                 rangelb = params["rangelb"]
                 rangehb = params["rangehb"]
@@ -322,13 +526,21 @@ class MainWindow(QMainWindow):
                     rangehb=rangehb
                 )
 
+                if hasattr(self.dataset, "attach_peak_areas_to_results"):
+                    self.dataset.attach_peak_areas_to_results()
+
+                self.grain_metrics = []
+
                 self.status_label.setText(
                     f"Status: Decomposition fit complete | "
                     f"range=({rangelb}, {rangehb})"
                 )
-
+                
             # disable fit after successful run
             self.fit_button.setEnabled(False)
+            self.plot_fits_button.setEnabled(True)
+            self.plot_percentages_button.setEnabled(True)
+            self.save_results_button.setEnabled(True)
 
         except Exception as e:
             QMessageBox.critical(self, "Fit Error", str(e))
@@ -409,7 +621,8 @@ class MainWindow(QMainWindow):
                     f"Status: Loaded {len(self.measurement_files)} measurements and "
                     f"{len(self.standard_files)} standards"
                 )
-
+        
+            self.raw_button.setEnabled(True)
         except Exception as e:
             QMessageBox.critical(self, "File Selection Error", str(e))
             self.status_label.setText("Status: File selection failed")
@@ -436,6 +649,18 @@ class MainWindow(QMainWindow):
         try:
             self.dataset.plot_fits()
             plt.show()
+
+            #Dont show this if not raman
+            grain_metrics = self.grain_metrics if self.mode == "Raman" else None
+
+            dialog = AnalysisResultsDialog(
+                mode=self.mode,
+                results=self.dataset.results,
+                grain_metrics=grain_metrics,
+                parent=self
+            )
+            dialog.exec_()
+
             self.status_label.setText("Status: Fit plots opened")
         except Exception as e:
             QMessageBox.critical(self, "Plot Error", str(e))
@@ -474,9 +699,17 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Plot Error", str(e))
 
 def main():
+    # Call the initializer
     app = QApplication(sys.argv)
+
+    #change the font
+    font = QFont()
+    font.setPointSize(15)
+    app.setFont(font)
+
+    # set the size of the window and show
     window = MainWindow()
-    window.resize(900, 600)
+    window.resize(1200, 900)
     window.show()
     sys.exit(app.exec_())
 

@@ -1,6 +1,8 @@
 from dataset import DataSet
-from plot import plot
+from plot import plot_fit_figure, plot_multiple_series
 import numpy as np
+import math
+import matplotlib.pyplot as plt
 
 # Child class of Dataset
 # for when there are lorenzians within the data (a classic raman)
@@ -9,6 +11,24 @@ class RamanDataSet(DataSet):
     # Constructor
     def __init__(self, filepaths):
         super().__init__(filepaths)
+
+    def attach_peak_areas_to_results(self):
+        for result in self.results:
+            params = result["params"]
+            x0_list = result["x0_list"]
+
+            area_list = []
+
+            # EXAMPLE assumption:
+            # params = [A1, gamma1, A2, gamma2, ...]
+            for i in range(len(x0_list)):
+                A = params[2 * i]
+                gamma = params[2 * i + 1]
+
+                area = math.pi * A * gamma
+                area_list.append(area)
+
+            result["area_list"] = area_list
 
     # calculates grain size
     # unique to raman
@@ -63,24 +83,8 @@ class RamanDataSet(DataSet):
     # calls plot LORENTZIAN 
     def plot_fits(self):
         for result in self.results:
-            xr = result["xr"]
-            yr = result["yr"]
-            total_fit = result["total_fit"]
-            peaks = result["peaks"]
-
-            y_series = [yr] + peaks + [total_fit]
-            labels = ["Data"] + [f"Peak {i+1}" for i in range(len(peaks))] + ["Total Fit"]
-            styles = ['k'] + ['--'] * len(peaks) + ['r']
-
-            plot(
-                xr,
-                y_series,
-                labels=labels,
-                styles=styles,
-                title=result["filepath"],
-                xlabel="Raman shift",
-                ylabel="Intensity"
-            )
+            fig = self.make_fit_figure(result)
+        plt.show()
     
     # implement abstract method: plotpercentages
     # pass in different values to plot percentages
@@ -95,7 +99,7 @@ class RamanDataSet(DataSet):
             values = [p[i] for p in percentages]
             y_series.append(values)
 
-        plot(
+        plot_multiple_series(
             samples,
             y_series,
             labels=labels,
@@ -105,3 +109,26 @@ class RamanDataSet(DataSet):
             ylabel="Percentage (%)",
             ylim=(0, 100)
         )
+
+        
+    def make_fit_figure(self, result):
+        x = result["xr"]
+        y = result["yr"]
+        total_fit = result["total_fit"]
+        peaks = result["peaks"]
+
+        labels = ["Data"] + [f"Peak {i+1}" for i in range(len(peaks))] + ["Total Fit"]
+        styles = ['k'] + ['--'] * len(peaks) + ['r']
+        y_series = [y] + peaks + [total_fit]
+
+        fig = plot_fit_figure(
+            x,
+            y_series,
+            labels=labels,
+            styles=styles,
+            title=result["filepath"],
+            xlabel="Raman shift",
+            ylabel="Intensity"
+        )
+
+        return fig

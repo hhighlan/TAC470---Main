@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
-import numpy as np 
+import numpy as np
 
-def plot(
+
+def plot_fit_figure(
     x,
     y_series,
     labels=None,
@@ -12,47 +13,62 @@ def plot(
     ylim=None,
     show_legend=True
 ):
-    """
-    General plotting function.
-
-    Parameters:
-        x : array
-        y_series : list of arrays (each curve to plot)
-        labels : list of labels for legend
-        styles : list of matplotlib styles (e.g. 'k', '--', etc.)
-    """
-
-    plt.figure()
+    fig, ax = plt.subplots()
 
     n = len(y_series)
 
     for i in range(n):
         y = y_series[i]
-
         style = styles[i] if styles else '-'
         label = labels[i] if labels else None
+        ax.plot(x, y, style, label=label)
 
-        plt.plot(x, y, style, label=label)
-
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
 
     if ylim is not None:
-        plt.ylim(ylim)
+        ax.set_ylim(ylim)
 
-    plt.grid(True)
+    ax.grid(True)
 
     if show_legend and labels:
-        plt.legend()
+        ax.legend()
 
-# plot the raw data
+    return fig
+
+
+def plot_multiple_series(
+    x,
+    y_series,
+    labels=None,
+    styles=None,
+    title="",
+    xlabel="",
+    ylabel="",
+    ylim=None,
+    show_legend=True
+):
+    fig = plot_fit_figure(
+        x,
+        y_series,
+        labels=labels,
+        styles=styles,
+        title=title,
+        xlabel=xlabel,
+        ylabel=ylabel,
+        ylim=ylim,
+        show_legend=show_legend
+    )
+    return fig
+
+
 def plot_raw_data(filepath, title="Raw"):
     data = np.loadtxt(filepath)
     x = data[:, 0]
     y = data[:, 1]
 
-    plot(
+    fig = plot_fit_figure(
         x,
         [y],
         labels=["Raw Data"],
@@ -61,3 +77,5 @@ def plot_raw_data(filepath, title="Raw"):
         xlabel="Raman shift (cm$^{-1}$)",
         ylabel="Intensity"
     )
+
+    return fig
