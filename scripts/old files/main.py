@@ -1,7 +1,7 @@
 from file_util import get_file_list_standard, get_file_list
-from decomp_stand import DecompDataSet
-from raman import RamanDataSet
-from fitters import SpectralFitter
+from Analysis.decomp_stand import DecompDataSet
+from Analysis.raman import RamanDataSet
+from Analysis.fitters import SpectralFitter
 import matplotlib.pyplot as plt
 
 # currently basically just hard code tests to make sure that everything is working
